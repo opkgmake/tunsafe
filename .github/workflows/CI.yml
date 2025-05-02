@@ -68,6 +68,7 @@ jobs:
          echo "build_time=$(date '+%Y年%m月%d日%H:%M:%S' | jq -sRr @uri)" >> $GITHUB_ENV
          tagtime=$(date '+%Y-%m-%d')
          echo "tagtime=$(date '+%Y-%m-%d')" >> $GITHUB_ENV
+         mv -f tunsafe tunsafe_${{ matrix.target }}
          
      - name: 安装 UPX
        uses: crazy-max/ghaction-upx@v3
@@ -80,7 +81,7 @@ jobs:
      - uses: actions/upload-artifact@v4
        with:
         name: tunsafe-${{ matrix.target }}
-        path: tunsafe
+        path: tunsafe_${{ matrix.target }}
         
      - name: 发布Release
        uses: softprops/action-gh-release@v2
@@ -90,7 +91,7 @@ jobs:
            > ### ![](https://img.shields.io/badge/%E7%BC%96%E8%AF%91%E6%97%B6%E9%97%B4-${{ env.build_time }}-8267?logo=github&labelColor=%E9%A1%BB)![](https://img.shields.io/github/downloads/${{ github.repository }}/${{env.tagtime}}/total?label=%E4%B8%8B%E8%BD%BD%E6%AC%A1%E6%95%B0&logo=github) 
            
           tag_name: ${{env.tagtime}}
-          files: tunsafe
+          files: tunsafe_${{ matrix.target }}
   del:
     runs-on: ubuntu-latest
     steps:
