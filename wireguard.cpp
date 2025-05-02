@@ -33,7 +33,7 @@ WireguardProcessor::WireguardProcessor(UdpInterface *udp, TunInterface *tun, Pro
   tun_ = tun;
   procdel_ = procdel;
   mtu_ = 1420;
-  dns_resolver_ = resolver;
+  dns_resolver_ = resolver ? resolver : new DnsResolver(nullptr);
   memset(&stats_, 0, sizeof(stats_));
   listen_port_ = 0;
   listen_port_tcp_ = 0;
@@ -696,13 +696,18 @@ void WireguardProcessor::SendHandshakeInitiation(WgPeer *peer) {
              new_addr.sin.sin_port = htons(atoi(port_part));
               success = true;
            } else {
-             // 域名
-             if (dns_resolver_ && dns_resolver_->Resolve(host_part, &new_addr)) {
-                new_addr.sin.sin_port = htons(atoi(port_part));
-                success = true;
+             // 是域名先清理dns缓存再解析
+             dns_resolver_->ClearCache();
+      	     if (!dns_resolver_) {
+                RERROR("dns_resolver_ 未初始化，无法解析域名: %s", host_part);
              } else {
-                RERROR("无法解析域名: %s", host_part);
-             }
+                if (dns_resolver_->Resolve(host_part, &new_addr)) {
+                   new_addr.sin.sin_port = htons(atoi(port_part));
+                   success = true;
+                } else {
+                   RERROR("dns_resolver_ 无法解析域名: %s", host_part);
+               }
+              }
            }
        }
     }
