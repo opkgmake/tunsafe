@@ -661,14 +661,59 @@ void WireguardProcessor::SendHandshakeInitiation(WgPeer *peer) {
     }
   }
 
-  IpAddr new_addr;
-  char buf[kSizeOfAddress];
-  if (dns_resolver_ && dns_resolver_->Resolve(host.c_str(), &new_addr)) {
-    peer->SetEndpoint(peer->endpoint_protocol_, new_addr, host.c_str());
-    RINFO("已解析并更新 %s 的 IP 地址为 %s", host.c_str(), PrintIpAddr(new_addr, buf));
-  //} else {
-    //RERROR("无法解析 %s 的 IP 地址，可能已经是IP地址或 AllowedIPs 参数设置了0.0.0.0/0 ", host.c_str());
-  }
+     size_t len = host.size() + 1;
+     char *s = (char *)alloca(len);  
+     memcpy(s, host.c_str(), len);   
+     IpAddr new_addr;
+     memset(&new_addr, 0, sizeof(IpAddr)); 
+     bool success = false;
+
+    if (*s == '[') {
+       char *end = strchr(s, ']');
+       if (end != NULL) {
+          *end = 0;
+          if (inet_pton(AF_INET6, s + 1, &new_addr.sin6.sin6_addr) == 1) {
+             char *x = strchr(end + 1, ':');
+             if (x) {
+                new_addr.sin6.sin6_family = AF_INET6;
+                new_addr.sin6.sin6_port = htons(atoi(x + 1));
+                success = true;
+             }
+          }
+       }
+    } else {
+       // ✅ 处理 IPv4 或 域名
+       char *x = strchr(s, ':');
+       if (x) {
+          *x = 0;
+          const char *host_part = s;
+          const char *port_part = x + 1;
+
+          struct in_addr ipv4;
+          if (inet_pton(AF_INET, host_part, &ipv4) == 1) {
+             new_addr.sin.sin_family = AF_INET;
+             new_addr.sin.sin_addr = ipv4;
+             new_addr.sin.sin_port = htons(atoi(port_part));
+              success = true;
+           } else {
+             // 域名
+             if (dns_resolver_ && dns_resolver_->Resolve(host_part, &new_addr)) {
+                new_addr.sin.sin_port = htons(atoi(port_part));
+                success = true;
+             } else {
+                RERROR("无法解析域名: %s", host_part);
+             }
+           }
+       }
+    }
+
+    if (success) {
+       peer->SetEndpoint(peer->endpoint_protocol_, new_addr, peer->endpoint_hostname_.c_str());
+       RINFO("已将 %s 的 Endpoint 地址更新为 %s", peer->endpoint_hostname_.c_str(), host.c_str());
+    }
+    else {
+       RERROR("无法更新 %s 的 Endpoint 地址: %s", peer->endpoint_hostname_.c_str(), host.c_str());
+    }
   
   if (!peer->CheckHandshakeRateLimit() ||
       peer->endpoint_.sin.sin_family == 0 ||
