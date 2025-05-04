@@ -64,8 +64,10 @@ static inline uint32 rol32(uint32 x, int8_t r) {
 }
 #endif  // !defined(COMPILER_MSVC)
 
-void RERROR(const char *msg, ...);
-void RINFO(const char *msg, ...);
+void RERROR_(const char *file, int line, const char *msg, ...);
+void RINFO_(const char *file, int line, const char *msg, ...);
+#define RERROR(...) RERROR_(__FILE__, __LINE__, __VA_ARGS__)
+#define RINFO(...)  RINFO_(__FILE__, __LINE__, __VA_ARGS__)
 void tunsafe_die(const char *msg);
 
 #ifdef _DEBUG

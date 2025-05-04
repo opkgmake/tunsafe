@@ -381,7 +381,7 @@ error:
 
 bool ParseWireGuardConfigFile(WireguardProcessor *wg, const char *filename, DnsResolver *dns_resolver) {
   std::string temp;
-  RINFO("\n加载配置文件: %s", filename);
+  RINFO("加载配置文件: %s", filename);
   if (!LoadFileWithMaximumSize(filename, &temp, 1024 * 1024)) {
     RERROR("无法打开: %s", filename);
     return false;

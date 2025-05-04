@@ -33,7 +33,7 @@
 #include <mach/mach_time.h>
 #include <net/if_dl.h>
 #elif defined(OS_FREEBSD)
-//#include <net/if_tun.h>
+#include <net/if_tun.h>
 #include <net/if_dl.h>
 #elif defined(OS_LINUX)
 #include <linux/if.h>
@@ -768,7 +768,7 @@ void TunsafeBackendBsdImpl::OnConnected() {
     }
     uint32 ipv4_ip = ipv4_addr ? ReadBE32(ipv4_addr->addr) : 0;
     char buf[kSizeOfAddress];
-    RINFO("连接已建立. IP %s", ipv4_ip ? print_ip(buf, ipv4_ip) : "(none)");
+    RINFO("连接已建立. 对端IP: %s", ipv4_ip ? print_ip(buf, ipv4_ip) : "(none)");
     is_connected_ = true;
   }
 }
@@ -837,7 +837,7 @@ int main(int argc, char **argv) {
   InitOsxGetMilliseconds();
 #endif
 
-  SetThreadName("tunsafe-m");
+  //SetThreadName("tunsafe-m");
 
   TunsafeBackendBsdImpl backend;
   if (cmd.interface_name)

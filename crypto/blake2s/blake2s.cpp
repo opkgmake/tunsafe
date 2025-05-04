@@ -245,7 +245,7 @@ static void blake2s_compress(blake2s_state *S, const uint8_t in[BLAKE2S_BLOCKBYT
 #undef ROUND
 
 
-#if defined(ARCH_CPU_X86_FAMILY)
+#if defined(ARCH_CPU_X86_FAMILY) && (defined(__SSE2__) || defined(HAVE_SSSE3) || defined(HAVE_SSE41) || defined(HAVE_AVX) || defined(HAVE_XOP))
 #include "blake2s-sse-impl.h"
 #endif
 

@@ -243,36 +243,64 @@ void printhex(const char *name, const void *a, size_t l) {
 typedef void Logger(int type, const char *msg);
 Logger *g_logger;
 
-#undef RERROR
+//#undef RERROR
 #undef void 
 
-void RERROR(const char *msg, ...);
-
-void RERROR(const char *msg, ...) {
+extern void (*g_logger)(int level, const char *msg);  
+void RERROR_(const char *file, int line, const char *msg, ...) {
   va_list va;
-  char buf[512];
+  char buf[512];           
+  char final_buf[1024];    
+  char time_str[64];       
+  const char *filename;
+
+  time_t now = time(nullptr);
+  struct tm *lt = localtime(&now);
+  strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", lt);  
+
+  const char *slash1 = strrchr(file, '/');
+  const char *slash2 = strrchr(file, '\\');
+  filename = (slash1 > slash2) ? slash1 + 1 : (slash2 ? slash2 + 1 : file);
+
   va_start(va, msg);
   vsnprintf(buf, sizeof(buf), msg, va);
   va_end(va);
+
+  snprintf(final_buf, sizeof(final_buf), "%s [%s:%d]Error: %s", time_str, filename, line, buf);
+
   if (g_logger) {
-    g_logger(1, buf);
+    g_logger(1, final_buf);  
   } else {
-    fputs(buf, stderr);
+    fputs(final_buf, stderr);
     fputs("\n", stderr);
   }
 }
 
-
-void RINFO(const char *msg, ...) {
+void RINFO_(const char *file, int line, const char *msg, ...) {
   va_list va;
   char buf[512];
+  char final_buf[1024];
+  char time_str[64];
+  const char *filename;
+
+  time_t now = time(nullptr);
+  struct tm *lt = localtime(&now);
+  strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", lt);
+
+  const char *slash1 = strrchr(file, '/');
+  const char *slash2 = strrchr(file, '\\');
+  filename = (slash1 > slash2) ? slash1 + 1 : (slash2 ? slash2 + 1 : file);
+
   va_start(va, msg);
   vsnprintf(buf, sizeof(buf), msg, va);
   va_end(va);
+
+  snprintf(final_buf, sizeof(final_buf), "%s [%s:%d]: %s", time_str, filename, line, buf);
+
   if (g_logger) {
-    g_logger(0, buf);
+    g_logger(0, final_buf); 
   } else {
-    fputs(buf, stderr);
+    fputs(final_buf, stderr);
     fputs("\n", stderr);
   }
 }

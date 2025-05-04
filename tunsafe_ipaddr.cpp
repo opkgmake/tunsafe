@@ -320,7 +320,7 @@ bool DnsResolver::Resolve(const char *hostname, IpAddr *result) {
     if (it->name == hostname) {
 
       *result = it->ip;
-      RINFO("已将 %s 解析为 %s:%s", hostname, PrintIpAddr(*result, buf), " (cached)");
+      RINFO("已将 %s 解析为 %s:%s", hostname, PrintIpAddr(*result, buf), " (来自缓存)");
       return true;
     }
   }
@@ -337,7 +337,7 @@ bool DnsResolver::Resolve(const char *hostname, IpAddr *result) {
     if (g_dnsresolver_thread.Resolve(hostname, result, &token_)) {
       // add to cache
       cache_.emplace_back(hostname, *result);
-      RINFO("已将 %s 解析为 %s:%s", hostname, PrintIpAddr(*result, buf), "");
+      RINFO("已将 %s 解析为 %s%s", hostname, PrintIpAddr(*result, buf), "");
       return true;
     }
     if (token_.is_cancelled())
@@ -498,7 +498,7 @@ bool ParseSockaddrInWithPort(const char *si, IpAddr *sin, DnsResolver *resolver,
   char *x = strchr(s, ':');
   if (!x) return false;
   *x = 0;
-   RINFO("解析出IP地址: %s:%s", s, x + 1);
+   //RINFO("解析出IP地址: %s:%s", s, x + 1);
   if (!ParseIpv4WithNAT64Translation(s, sin, flags)) {
     if (!resolver) {
       return false;

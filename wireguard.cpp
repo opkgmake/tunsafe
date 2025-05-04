@@ -714,10 +714,10 @@ void WireguardProcessor::SendHandshakeInitiation(WgPeer *peer) {
 
     if (success) {
        peer->SetEndpoint(peer->endpoint_protocol_, new_addr, peer->endpoint_hostname_.c_str());
-       RINFO("已将 %s 的 Endpoint 地址更新为 %s", peer->endpoint_hostname_.c_str(), host.c_str());
+       RINFO("已更新 %s 的 Endpoint 地址", peer->endpoint_hostname_.c_str());
     }
     else {
-       RERROR("无法更新 %s 的 Endpoint 地址: %s", peer->endpoint_hostname_.c_str(), host.c_str());
+       RERROR("无法更新 %s 的 Endpoint 地址", peer->endpoint_hostname_.c_str());
     }
   
   if (!peer->CheckHandshakeRateLimit() ||

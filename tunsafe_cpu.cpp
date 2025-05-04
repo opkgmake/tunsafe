@@ -68,7 +68,7 @@ void PrintCpuFeatures() {
   if (X86_PCAP_AVX512F) s = strcpy_e(s, end, " avx512f");
   if (X86_PCAP_AVX512VL) s = strcpy_e(s, end, " avx512vl");
 
-  RINFO("\n\033[1;31m用法： \033[0m %s", capbuf);
+  RINFO("\n\033[1;31m使用： \033[0m %s", capbuf);
 }
 
 #elif defined(ARCH_CPU_ARM_FAMILY)  // defined(ARCH_CPU_X86_FAMILY)
@@ -84,14 +84,14 @@ void PrintCpuFeatures() {
 
   if (ARM_PCAP_NEON) s = strcpy_e(s, end, " neon");
 
-  RINFO("\n\033[1;31m用法： \033[0m %s", capbuf);
+  RINFO("\n\033[1;31m使用： \033[0m %s", capbuf);
 }
 #else  // defined(ARCH_CPU_ARM_FAMILY)
 
 void InitCpuFeatures() { }
 
 void PrintCpuFeatures() {
-  RINFO("\n\033[1;31m用法： \033[0m generic");
+  RINFO("\n\033[1;31m使用： \033[0m generic");
 }
 
 #endif  // else

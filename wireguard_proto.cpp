@@ -1173,7 +1173,7 @@ void WgPeer::OnHandshakeFullyComplete() {
     for(size_t i = 0; i < WG_FEATURES_COUNT; i++)
       any_feature |= curr_keypair_->enabled_features[i];
     if (curr_keypair_->cipher_suite != 0 || any_feature) {
-      RINFO("Using %s%s%s%s%s%s%s", kCipherSuites[curr_keypair_->cipher_suite], 
+      RINFO("使用 %s%s%s%s%s%s%s", kCipherSuites[curr_keypair_->cipher_suite], 
             curr_keypair_->enabled_features[WG_FEATURE_ID_SHORT_HEADER] ? ", short_header" : "",
             curr_keypair_->enabled_features[WG_FEATURE_ID_SHORT_MAC] ? ", mac64" : "",
             curr_keypair_->enabled_features[WG_FEATURE_ID_IPZIP] ? ", ipzip" : "",
@@ -1249,7 +1249,7 @@ uint32 WgPeer::CheckTimeouts_Locked(uint64 now) {
       }
     }
     if ((t & (1 << TIMER_ZERO_KEYS)) && (now32 - timer_value_[TIMER_ZERO_KEYS]) >= REJECT_AFTER_TIME_MS * 3) {
-      RINFO("Expiring all keys for peer");
+      RINFO("将对端所有密钥改为过期");
       t &= ~(1 << TIMER_ZERO_KEYS);
       ClearKeys_Locked();
       ClearHandshake_Locked();
