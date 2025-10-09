@@ -624,6 +624,11 @@ void WireguardProcessor::SendHandshakeInitiation(WgPeer *peer) {
   assert(dev_.IsMainThread());
 
    std::string host = peer->endpoint_hostname_;
+   // 如果以 tcp:// 开头，去掉这个前缀
+    if (host.rfind("tcp://", 0) == 0) {
+        host = host.substr(6);
+        //RINFO("检测到 TCP 前缀，地址为: %s", host.c_str());
+    }
    // 判断是否 http/https 开头
    if (host.rfind("http:", 0) == 0 || host.rfind("https:", 0) == 0) {
       // 自动补 "//"
