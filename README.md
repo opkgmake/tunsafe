@@ -35,4 +35,10 @@ Socks5Proxy = 127.0.0.1:1080
 ```
 
 请确保系统已安装 `libhev-socks5-tunnel` 并且 TunSafe 可以在运行目录或可执行文件所在目录找到相应的 `libhev-socks5-tunnel.so`。
+该文件必须使用 `make shared` 方式在 [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) 工程中构建，
+以便生成真正的共享库；仅包含可执行文件的 `make` 或 `make static` 产物无法被 TunSafe 动态加载。
+
+此外，TunSafe 进程本身也需要支持运行时动态加载（`dlopen`）。如果使用 `ENABLE_STATIC=1` 等参数生成完全静态链接的
+二进制文件，运行时将无法载入 Socks5 后端，启动时会提示“当前的 TunSafe 构建不支持动态加载”。请在构建 TunSafe 时使用
+默认的动态链接选项。
 

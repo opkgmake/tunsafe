@@ -80,16 +80,38 @@ bool Socks5TunnelRunner::LoadLibrary(const std::string &path) {
   }
 
   const char *last_error = nullptr;
+  std::vector<std::string> error_details;
   for (const std::string &resolved : candidates) {
     lib_handle_ = dlopen(resolved.c_str(), RTLD_LAZY | RTLD_LOCAL);
     if (lib_handle_)
       break;
     last_error = dlerror();
+    if (last_error) {
+      std::string message(last_error);
+      if (message.find("Dynamic loading not supported") != std::string::npos) {
+        last_error_ =
+            "当前的 TunSafe 构建不支持动态加载 (例如使用 ENABLE_STATIC=1 编译)。\n"
+            "Socks5 模式需要启用动态链接，请使用支持 dlopen 的构建方式重新编译";
+        return false;
+      }
+      error_details.emplace_back(resolved + ": " + message);
+    } else {
+      error_details.emplace_back(resolved + ": 未知错误");
+    }
   }
   if (!lib_handle_) {
     last_error_ = "无法加载 libhev-socks5-tunnel";
-    if (last_error)
+    if (!error_details.empty()) {
+      last_error_ += "。尝试的路径: ";
+      for (size_t i = 0; i < error_details.size(); ++i) {
+        if (i)
+          last_error_ += "; ";
+        last_error_ += error_details[i];
+      }
+      last_error_ += "。请确认已按照 hev-socks5-tunnel 项目的 make shared 生成共享库";
+    } else if (last_error) {
       last_error_ += std::string(": ") + last_error;
+    }
     return false;
   }
   main_fn_ = reinterpret_cast<MainFromStrFn>(dlsym(lib_handle_, "hev_socks5_tunnel_main_from_str"));
