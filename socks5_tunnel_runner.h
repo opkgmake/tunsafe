@@ -20,16 +20,9 @@ public:
   const std::string &last_error() const { return last_error_; }
 
 private:
-  bool LoadLibrary(const std::string &path);
   std::string BuildConfig(const TunInterface::TunConfig::Socks5Settings &settings, int mtu) const;
   void ThreadMain(int fd, std::string config);
 
-  using MainFromStrFn = int (*)(const unsigned char *, unsigned int, int);
-  using QuitFn = void (*)();
-
-  void *lib_handle_;
-  MainFromStrFn main_fn_;
-  QuitFn quit_fn_;
   std::thread thread_;
   mutable std::mutex mutex_;
   bool running_;

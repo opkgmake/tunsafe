@@ -244,9 +244,7 @@ bool WgFileParser::ParseFlag(const char *group, const char *key, char *value) {
       socks.enabled = true;
       socks.tunnel_ipv6 = value;
     } else if (strcmp(key, "Socks5Library") == 0) {
-      auto &socks = wg_->socks5_settings();
-      socks.enabled = true;
-      socks.library_path = value;
+      RINFO("Socks5Library 已内置，忽略配置项 %s", value);
     } else if (strcmp(key, "Socks5LogLevel") == 0) {
       auto &socks = wg_->socks5_settings();
       socks.enabled = true;

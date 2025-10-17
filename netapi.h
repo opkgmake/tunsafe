@@ -136,7 +136,6 @@ public:
       bool pipeline = false;
       std::string tunnel_ipv4;  // optional
       std::string tunnel_ipv6;  // optional
-      std::string library_path; // optional override
       std::string log_level;    // optional override
     } socks5;
   };
