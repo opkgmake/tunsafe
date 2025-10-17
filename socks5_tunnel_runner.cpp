@@ -46,6 +46,16 @@ std::string Defaulted(const std::string &value, const std::string &fallback) {
   return value.empty() ? fallback : value;
 }
 
+std::string TrimAsciiWhitespace(const std::string &value) {
+  size_t start = 0;
+  while (start < value.size() && std::isspace(static_cast<unsigned char>(value[start])))
+    ++start;
+  size_t end = value.size();
+  while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1])))
+    --end;
+  return value.substr(start, end - start);
+}
+
 bool TrySplitInlinePort(const std::string &value, std::string *host, uint16 *port) {
   if (value.empty())
     return false;
@@ -137,12 +147,13 @@ bool Socks5TunnelRunner::Start(const TunInterface::TunConfig::Socks5Settings &se
   Stop();
   TunInterface::TunConfig::Socks5Settings sanitized = settings;
 
+  sanitized.server_address = TrimAsciiWhitespace(sanitized.server_address);
+
   std::string inline_host;
   uint16 inline_port = 0;
   if (TrySplitInlinePort(sanitized.server_address, &inline_host, &inline_port)) {
     sanitized.server_address = inline_host;
-    if (sanitized.server_port == 0)
-      sanitized.server_port = inline_port;
+    sanitized.server_port = inline_port;
   }
 
   if (sanitized.server_address.empty() || sanitized.server_port == 0) {
