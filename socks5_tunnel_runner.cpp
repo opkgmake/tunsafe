@@ -8,6 +8,7 @@
 #include <sstream>
 #include <string.h>
 #include <unistd.h>
+#include <cctype>
 
 #include "third_party/hev-socks5-tunnel/include/hev-socks5-tunnel.h"
 
@@ -43,6 +44,57 @@ std::string EscapeYaml(const std::string &value) {
 
 std::string Defaulted(const std::string &value, const std::string &fallback) {
   return value.empty() ? fallback : value;
+}
+
+bool TrySplitInlinePort(const std::string &value, std::string *host, uint16 *port) {
+  if (value.empty())
+    return false;
+
+  auto ParsePort = [](const std::string &port_str, uint16 *out_port) {
+    if (port_str.empty())
+      return false;
+    unsigned int parsed = 0;
+    for (char ch : port_str) {
+      if (!std::isdigit(static_cast<unsigned char>(ch)))
+        return false;
+      parsed = parsed * 10 + (ch - '0');
+      if (parsed > 65535)
+        return false;
+    }
+    *out_port = static_cast<uint16>(parsed);
+    return true;
+  };
+
+  if (value.front() == '[') {
+    size_t closing = value.rfind(']');
+    if (closing == std::string::npos || closing == 0)
+      return false;
+    if (closing + 2 > value.size() || value[closing + 1] != ':')
+      return false;
+    uint16 parsed_port;
+    if (!ParsePort(value.substr(closing + 2), &parsed_port))
+      return false;
+    if (host)
+      *host = value.substr(1, closing - 1);
+    if (port)
+      *port = parsed_port;
+    return true;
+  }
+
+  size_t colon = value.rfind(':');
+  if (colon == std::string::npos || colon == 0 || colon == value.size() - 1)
+    return false;
+  if (value.find(':') != colon)
+    return false;  // 多个冒号意味着可能是 IPv6 地址。
+
+  uint16 parsed_port;
+  if (!ParsePort(value.substr(colon + 1), &parsed_port))
+    return false;
+  if (host)
+    *host = value.substr(0, colon);
+  if (port)
+    *port = parsed_port;
+  return true;
 }
 }  // namespace
 
@@ -83,11 +135,21 @@ std::string Socks5TunnelRunner::BuildConfig(const TunInterface::TunConfig::Socks
 
 bool Socks5TunnelRunner::Start(const TunInterface::TunConfig::Socks5Settings &settings, int fd, int mtu) {
   Stop();
-  if (settings.server_address.empty() || settings.server_port == 0) {
+  TunInterface::TunConfig::Socks5Settings sanitized = settings;
+
+  std::string inline_host;
+  uint16 inline_port = 0;
+  if (TrySplitInlinePort(sanitized.server_address, &inline_host, &inline_port)) {
+    sanitized.server_address = inline_host;
+    if (sanitized.server_port == 0)
+      sanitized.server_port = inline_port;
+  }
+
+  if (sanitized.server_address.empty() || sanitized.server_port == 0) {
     last_error_ = "未提供有效的 Socks5Proxy";
     return false;
   }
-  std::string config = BuildConfig(settings, mtu);
+  std::string config = BuildConfig(sanitized, mtu);
   int dup_fd = dup(fd);
   if (dup_fd < 0) {
     last_error_ = "无法复制隧道文件描述符";
