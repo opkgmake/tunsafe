@@ -30,6 +30,7 @@
 #include "network_common.cpp"
 
 #if defined(WITH_NETWORK_BSD)
+#include "socks5_tunnel_runner.cpp"
 #include "network_bsd.cpp"
 #include "tunsafe_bsd.cpp"
 #include "ts.cpp"

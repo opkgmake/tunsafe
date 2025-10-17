@@ -43,7 +43,7 @@ public:
   virtual bool Configure(const TunConfig &&config, TunConfigOut *out) override;
 
 protected:
-  virtual bool InitializeTun(char devname[16]) = 0;
+  virtual bool InitializeTun(const TunConfig &config, char devname[16]) = 0;
 
   void AddRoute(uint32 ip, uint32 cidr, uint32 gw, const char *dev);
   void DelRoute(const RouteInfo &cd);
@@ -55,6 +55,7 @@ protected:
   std::vector<WgCidrAddr> addresses_to_remove_;
   char devname_[16];
   bool tun_interface_gone_;
+  TunConfig::Socks5Settings socks5_settings_;
 };
 
 #endif  // TUNSAFE_NETWORK_BSD_COMMON_H_

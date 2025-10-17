@@ -4,6 +4,7 @@
 #include "tunsafe_endian.h"
 #include "tunsafe_wg_plugin.h"
 #include "util.h"
+#include "socks5_tunnel_runner.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -18,6 +19,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <signal.h>
+#include <memory>
 
 #include <sys/socket.h>
 #include <net/route.h>
@@ -415,8 +417,19 @@ bool TunsafeBackendBsd::Configure(const TunConfig &&config, TunConfigOut *out) o
 
   out->enable_neighbor_discovery_spoofing = false;
 
-  if (!InitializeTun(devname_))
+  socks5_settings_ = config.socks5;
+
+  if (!InitializeTun(config, devname_))
     return false;
+
+  if (socks5_settings_.enabled) {
+    RunPrePostCommand(config.pre_post_commands.post_up);
+    pre_down_ = std::move(config.pre_post_commands.pre_down);
+    post_down_ = std::move(config.pre_post_commands.post_down);
+    cleanup_commands_.clear();
+    addresses_to_remove_.clear();
+    return true;
+  }
 
   const WgCidrAddr *ipv4_addr = NULL;
   const WgCidrAddr *ipv6_addr = NULL;
@@ -507,6 +520,12 @@ void TunsafeBackendBsd::CleanupRoutes() {
   char buf[kSizeOfAddress];
 
   RunPrePostCommand(pre_down_);
+
+  if (socks5_settings_.enabled) {
+    pre_down_.clear();
+    post_down_.clear();
+    return;
+  }
 
   for(auto it = cleanup_commands_.begin(); it != cleanup_commands_.end(); ++it) {
     if (!tun_interface_gone_ || strcmp(it->dev.c_str(), devname_) != 0)
@@ -655,7 +674,7 @@ public:
   virtual ~TunsafeBackendBsdImpl();
 
   void RunLoop();
-  virtual bool InitializeTun(char devname[16]) override;
+  virtual bool InitializeTun(const TunConfig &config, char devname[16]) override;
 
   // -- from TunInterface
   virtual void WriteTunPacket(Packet *packet) override;
@@ -690,9 +709,11 @@ private:
   UdpSocketBsd udp_;
   UnixDomainSocketListenerBsd unix_socket_listener_;
   TcpSocketListenerBsd tcp_socket_listener_;
+  std::unique_ptr<Socks5TunnelRunner> socks5_runner_;
+  bool using_socks_backend_;
 };
 
-TunsafeBackendBsdImpl::TunsafeBackendBsdImpl() 
+TunsafeBackendBsdImpl::TunsafeBackendBsdImpl()
     : is_connected_(false),
       close_orphan_counter_(0),
       plugin_(CreateTunsafePlugin(this, &processor_)),
@@ -701,15 +722,53 @@ TunsafeBackendBsdImpl::TunsafeBackendBsdImpl()
       tun_(&network_, &processor_), 
       udp_(&network_, &processor_),
       unix_socket_listener_(&network_, &processor_),
-      tcp_socket_listener_(&network_, &processor_) {
+      tcp_socket_listener_(&network_, &processor_),
+      using_socks_backend_(false) {
   processor_.dev().SetPlugin(plugin_);
 }
 
 TunsafeBackendBsdImpl::~TunsafeBackendBsdImpl() {
+  if (socks5_runner_) {
+    socks5_runner_->Stop();
+    socks5_runner_.reset();
+  }
   delete plugin_;
 }
 
-bool TunsafeBackendBsdImpl::InitializeTun(char devname[16]) {
+bool TunsafeBackendBsdImpl::InitializeTun(const TunConfig &config, char devname[16]) {
+  using_socks_backend_ = config.socks5.enabled;
+  if (using_socks_backend_) {
+#if defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_FREEBSD)
+    int fds[2];
+    if (socketpair(AF_UNIX, SOCK_DGRAM, 0, fds) != 0) {
+      RERROR("创建 socks5 管道失败");
+      return false;
+    }
+    socks5_runner_.reset(new Socks5TunnelRunner());
+    if (!socks5_runner_->Start(config.socks5, fds[1], config.mtu)) {
+      RERROR("启动 socks5 隧道失败: %s", socks5_runner_->last_error().c_str());
+      close(fds[0]);
+      close(fds[1]);
+      socks5_runner_.reset();
+      using_socks_backend_ = false;
+      return false;
+    }
+    close(fds[1]);
+    if (!tun_.Initialize(fds[0])) {
+      close(fds[0]);
+      socks5_runner_->Stop();
+      socks5_runner_.reset();
+      using_socks_backend_ = false;
+      return false;
+    }
+    my_strlcpy(devname, sizeof(devname_), "socks5");
+    return true;
+#else
+    RERROR("该平台不支持 Socks5 后端");
+    return false;
+#endif
+  }
+
   int tun_fd = open_tun(devname, 16);
   if (tun_fd < 0) { RERROR("打开 tun 设备时出错"); return false; }
   if (!tun_.Initialize(tun_fd)) {
@@ -717,7 +776,7 @@ bool TunsafeBackendBsdImpl::InitializeTun(char devname[16]) {
     return false;
   }
   unix_socket_listener_.Initialize(devname);
-  return true;  
+  return true;
 }
 
 void TunsafeBackendBsdImpl::WriteTunPacket(Packet *packet) {
@@ -740,12 +799,20 @@ void TunsafeBackendBsdImpl::WriteUdpPacket(Packet *packet) {
 }
 
 void TunsafeBackendBsdImpl::RunLoop() {
-  if (!unix_socket_listener_.Start(network_.exit_flag()))
-    return;
+  bool start_unix_listener = !using_socks_backend_;
+  if (start_unix_listener) {
+    if (!unix_socket_listener_.Start(network_.exit_flag()))
+      return;
+  }
 
   SignalCatcher signal_catcher(network_.exit_flag(), network_.sigalarm_flag());
   network_.RunLoop(&signal_catcher.orig_signal_mask_);
-  unix_socket_listener_.Stop();
+  if (start_unix_listener)
+    unix_socket_listener_.Stop();
+  if (socks5_runner_) {
+    socks5_runner_->Stop();
+    socks5_runner_.reset();
+  }
 
   tun_interface_gone_ = tun_.tun_interface_gone();
 }

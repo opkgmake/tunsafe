@@ -15,3 +15,24 @@
 liaohcai大佬的相关教程:
 https://www.right.com.cn/forum/thread-8348737-1-1.html
 
+## Socks5 后端支持
+
+在部分缺少 TUN 设备的 Linux 设备上，可以通过启用内置的 Socks5 隧道后端来运行 TunSafe。该模式依赖
+[hev-socks5-server](https://github.com/heiher/hev-socks5-server) 提供出口，TunSafe 会将 TUN 读写转换为
+用户态 Socks5 流量，因此无需再创建 `/dev/net/tun` 设备。
+
+在配置文件的 `[Interface]` 段落中添加以下字段即可启用：
+
+```
+Socks5Proxy = 127.0.0.1:1080
+# 可选: Socks5Username = user
+# 可选: Socks5Password = pass
+# 可选: Socks5UdpMode = tcp   # 默认 udp
+# 可选: Socks5Pipeline = true
+# 可选: Socks5TunnelIPv4 = 198.18.0.1
+# 可选: Socks5TunnelIPv6 = fc00::1
+```
+
+TunSafe 已内置 [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) 所需的客户端实现，
+无需再额外放置 `libhev-socks5-tunnel.so`。只要系统中存在 Socks5 服务端并在配置中填写正确的地址，即可直接启用。
+

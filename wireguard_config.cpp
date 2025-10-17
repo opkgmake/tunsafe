@@ -83,6 +83,34 @@ static int ParseCipherSuite(const char *cipher) {
   return -1;
 }
 
+static bool ParseSocks5Proxy(const char *value, std::string *host, uint16_t *port) {
+  if (!value || !*value)
+    return false;
+  const char *addr_begin = value;
+  const char *addr_end = value + strlen(value);
+  const char *port_sep = NULL;
+  if (value[0] == '[') {
+    const char *closing = strrchr(value, ']');
+    if (!closing)
+      return false;
+    addr_begin = value + 1;
+    addr_end = closing;
+    if (closing[1] == ':' && closing[2] != 0)
+      port_sep = closing + 1;
+  } else {
+    port_sep = strrchr(value, ':');
+  }
+  if (!port_sep || port_sep[1] == 0)
+    return false;
+  char *endptr = NULL;
+  long lport = strtol(port_sep + 1, &endptr, 10);
+  if (!endptr || *endptr != 0 || lport <= 0 || lport > 65535)
+    return false;
+  *host = std::string(addr_begin, addr_end - addr_begin);
+  *port = static_cast<uint16_t>(lport);
+  return true;
+}
+
 void WgFileParser::FinishGroup() {
   if (peer_) {
     peer_->SetPublicKey(pi_.pub);
@@ -169,8 +197,58 @@ bool WgFileParser::ParseFlag(const char *group, const char *key, char *value) {
           RERROR("BlockInternet 中的未知模式: %s", ss[i]);
         }
       }
-      
+
       wg_->SetInternetBlocking((InternetBlockState)v);
+    } else if (strcmp(key, "Socks5Proxy") == 0) {
+      std::string host;
+      uint16_t port = 0;
+      if (!ParseSocks5Proxy(value, &host, &port)) {
+        RERROR("Socks5Proxy 解析失败: %s", value);
+        return false;
+      }
+      auto &socks = wg_->socks5_settings();
+      socks.enabled = true;
+      socks.server_address = host;
+      socks.server_port = port;
+    } else if (strcmp(key, "Socks5Username") == 0) {
+      auto &socks = wg_->socks5_settings();
+      socks.enabled = true;
+      socks.username = value;
+    } else if (strcmp(key, "Socks5Password") == 0) {
+      auto &socks = wg_->socks5_settings();
+      socks.enabled = true;
+      socks.password = value;
+    } else if (strcmp(key, "Socks5UdpMode") == 0) {
+      auto &socks = wg_->socks5_settings();
+      socks.enabled = true;
+      if (strcmp(value, "udp") != 0 && strcmp(value, "tcp") != 0) {
+        RERROR("Socks5UdpMode 必须是 udp 或 tcp");
+        return false;
+      }
+      socks.udp_mode = value;
+    } else if (strcmp(key, "Socks5Pipeline") == 0) {
+      auto &socks = wg_->socks5_settings();
+      socks.enabled = true;
+      bool flag;
+      if (!ParseBoolean(value, &flag)) {
+        RERROR("Socks5Pipeline 解析失败: %s", value);
+        return false;
+      }
+      socks.pipeline = flag;
+    } else if (strcmp(key, "Socks5TunnelIPv4") == 0) {
+      auto &socks = wg_->socks5_settings();
+      socks.enabled = true;
+      socks.tunnel_ipv4 = value;
+    } else if (strcmp(key, "Socks5TunnelIPv6") == 0) {
+      auto &socks = wg_->socks5_settings();
+      socks.enabled = true;
+      socks.tunnel_ipv6 = value;
+    } else if (strcmp(key, "Socks5Library") == 0) {
+      RINFO("Socks5Library 已内置，忽略配置项 %s", value);
+    } else if (strcmp(key, "Socks5LogLevel") == 0) {
+      auto &socks = wg_->socks5_settings();
+      socks.enabled = true;
+      socks.log_level = value;
     } else if (WITH_HEADER_OBFUSCATION && strcmp(key, "ObfuscateKey") == 0) {
       wg_->dev().packet_obfuscator().SetKey((uint8*)value, strlen(value));
     } else if (WITH_HEADER_OBFUSCATION && strcmp(key, "ObfuscateTCP") == 0) {
