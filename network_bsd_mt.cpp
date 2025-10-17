@@ -537,7 +537,7 @@ public:
   virtual void HandleSigAlrm() override { worker_.HandleSigAlrm(); }
   virtual void HandleExit() override { worker_.NotifyStop(); }
 
-  virtual bool InitializeTun(char devname[16]) override;  
+  virtual bool InitializeTun(const TunConfig &config, char devname[16]) override;
 
   virtual void RunLoopInner() override;
 private:
@@ -552,7 +552,8 @@ TunsafeBackendBsdImpl::TunsafeBackendBsdImpl() {
 TunsafeBackendBsdImpl::~TunsafeBackendBsdImpl() {
 }
 
-bool TunsafeBackendBsdImpl::InitializeTun(char devname[16]) {
+bool TunsafeBackendBsdImpl::InitializeTun(const TunConfig &config, char devname[16]) {
+  (void)config;
   return tun_.Initialize(devname, &worker_);
 }
 

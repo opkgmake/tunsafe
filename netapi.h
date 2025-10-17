@@ -125,6 +125,20 @@ public:
 
     // This holds the pre/post commands
     PrePostCommands pre_post_commands;
+
+    struct Socks5Settings {
+      bool enabled = false;
+      std::string server_address;
+      uint16 server_port = 0;
+      std::string username;
+      std::string password;
+      std::string udp_mode;  // "udp" (default) or "tcp"
+      bool pipeline = false;
+      std::string tunnel_ipv4;  // optional
+      std::string tunnel_ipv6;  // optional
+      std::string library_path; // optional override
+      std::string log_level;    // optional override
+    } socks5;
   };
 
   struct TunConfigOut {

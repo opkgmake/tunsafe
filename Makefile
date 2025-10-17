@@ -9,7 +9,7 @@ LLDFLAGS = $(LDFLAGS)
 TARGET ?= Linux
 ifeq ($(TARGET), Linux)
     CCFLAGS += -ffunction-sections -fdata-sections
-    LLDFLAGS += -Wl,--gc-sections -lrt -pthread -latomic
+    LLDFLAGS += -Wl,--gc-sections -lrt -pthread -latomic -ldl
 else ifeq ($(TARGET), FreeBSD)
     CCFLAGS += -mssse3
     LLDFLAGS += -lrt -pthread

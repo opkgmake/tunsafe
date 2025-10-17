@@ -45,6 +45,9 @@ WireguardProcessor::WireguardProcessor(UdpInterface *udp, TunInterface *tun, Pro
   stats_last_bytes_in_ = 0;
   stats_last_bytes_out_ = 0;
   stats_last_ts_ = OsGetMilliseconds();
+  socks5_settings_.enabled = false;
+  socks5_settings_.udp_mode = "udp";
+  socks5_settings_.log_level = "warn";
 }
 
 WireguardProcessor::~WireguardProcessor() {
@@ -172,6 +175,7 @@ bool WireguardProcessor::ConfigureTun() {
   
   config.mtu = mtu_;
   config.pre_post_commands = pre_post_;
+  config.socks5 = socks5_settings_;
 
   if (add_routes_mode_) {
     config.excluded_routes = excluded_ips_;

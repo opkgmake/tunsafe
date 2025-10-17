@@ -4,6 +4,7 @@
 
 #include "tunsafe_types.h"
 #include "wireguard_proto.h"
+#include "netapi.h"
 
 // todo: for multithreaded use case need to use atomic ops.
 struct WgProcessorStats {
@@ -130,6 +131,7 @@ public:
 
   WgDevice &dev() { return dev_; }
   TunInterface::PrePostCommands &prepost() { return pre_post_; }
+  TunInterface::TunConfig::Socks5Settings &socks5_settings() { return socks5_settings_; }
   const std::vector<WgCidrAddr> &addr() { return addresses_; }
   void RunAllMainThreadScheduled();
 
@@ -177,6 +179,7 @@ private:
   std::vector<IpAddr> dns_addr_;
 
   TunInterface::PrePostCommands pre_post_;
+  TunInterface::TunConfig::Socks5Settings socks5_settings_;
 
   uint64 stats_last_bytes_in_, stats_last_bytes_out_;
   uint64 stats_last_ts_;
