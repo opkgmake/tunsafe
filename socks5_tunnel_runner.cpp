@@ -138,7 +138,7 @@ std::string Socks5TunnelRunner::BuildConfig(const TunInterface::TunConfig::Socks
     ss << "  password: " << EscapeYaml(settings.password) << "\n";
 
   ss << "misc:\n";
-  ss << "  log-level: " << EscapeYaml(Defaulted(settings.log_level, "warn")) << "\n";
+  ss << "  log-level: " << EscapeYaml(Defaulted(settings.log_level, "none")) << "\n";
   ss << "  task-stack-size: 98304\n";
   return ss.str();
 }

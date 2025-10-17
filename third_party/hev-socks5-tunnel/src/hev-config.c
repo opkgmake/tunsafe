@@ -311,6 +311,9 @@ hev_config_parse_log_level (const char *value)
         return HEV_LOGGER_INFO;
     else if (0 == strcmp (value, "error"))
         return HEV_LOGGER_ERROR;
+    else if (0 == strcmp (value, "none") || 0 == strcmp (value, "quiet") ||
+             0 == strcmp (value, "off"))
+        return HEV_LOGGER_UNSET;
 
     return HEV_LOGGER_WARN;
 }
