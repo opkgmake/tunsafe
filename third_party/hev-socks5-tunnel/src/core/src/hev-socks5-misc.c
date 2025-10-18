@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 
 #include <hev-task.h>
 #include <hev-task-io.h>
@@ -20,6 +21,7 @@
 
 #include "hev-socks5.h"
 #include "hev-socks5-logger-priv.h"
+#include "hev-config.h"
 
 #include "hev-socks5-misc.h"
 #include "hev-socks5-misc-priv.h"
@@ -71,7 +73,13 @@ hev_socks5_socket (int type)
     if (res < 0)
         hev_task_mod_fd (task, fd, POLLIN | POLLOUT);
 
-    if (type == SOCK_DGRAM) {
+    if (type == SOCK_STREAM) {
+        int buf = hev_config_get_misc_tcp_buffer_size ();
+        if (buf > 0) {
+            setsockopt (fd, SOL_SOCKET, SO_SNDBUF, &buf, sizeof (buf));
+            setsockopt (fd, SOL_SOCKET, SO_RCVBUF, &buf, sizeof (buf));
+        }
+    } else if (type == SOCK_DGRAM) {
         res = udp_recv_buffer_size;
         setsockopt (fd, SOL_SOCKET, SO_RCVBUF, &res, sizeof (res));
     }

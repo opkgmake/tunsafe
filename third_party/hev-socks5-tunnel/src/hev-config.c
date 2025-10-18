@@ -38,8 +38,8 @@ static int mapdns_cache_size;
 static char log_file[1024];
 static char pid_file[1024];
 static int max_session_count;
-static int task_stack_size = 86016;
-static int tcp_buffer_size = 65536;
+static int task_stack_size = TASK_STACK_SIZE + TCP_SND_BUF;
+static int tcp_buffer_size = TCP_SND_BUF;
 static int connect_timeout = 10000;
 static int read_write_timeout = 300000;
 static int limit_nofile = 65535;
@@ -311,6 +311,9 @@ hev_config_parse_log_level (const char *value)
         return HEV_LOGGER_INFO;
     else if (0 == strcmp (value, "error"))
         return HEV_LOGGER_ERROR;
+    else if (0 == strcmp (value, "none") || 0 == strcmp (value, "quiet") ||
+             0 == strcmp (value, "off"))
+        return HEV_LOGGER_UNSET;
 
     return HEV_LOGGER_WARN;
 }

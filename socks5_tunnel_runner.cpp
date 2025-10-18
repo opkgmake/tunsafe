@@ -4,14 +4,20 @@
 
 #include "util.h"
 
+#include <algorithm>
 #include <chrono>
 #include <sstream>
 #include <string.h>
 #include <unistd.h>
+#include <cctype>
+#include <limits>
 
 #include "third_party/hev-socks5-tunnel/include/hev-socks5-tunnel.h"
 
 namespace {
+constexpr uint32 kTaskStackBase = 20480;  // Matches TASK_STACK_SIZE in hev-config-const.h.
+constexpr uint32 kMinimumTaskStackSize = 98304;  // Historical default floor.
+
 std::string EscapeYaml(const std::string &value) {
   std::string out;
   out.reserve(value.size() + 2);
@@ -44,6 +50,67 @@ std::string EscapeYaml(const std::string &value) {
 std::string Defaulted(const std::string &value, const std::string &fallback) {
   return value.empty() ? fallback : value;
 }
+
+std::string TrimAsciiWhitespace(const std::string &value) {
+  size_t start = 0;
+  while (start < value.size() && std::isspace(static_cast<unsigned char>(value[start])))
+    ++start;
+  size_t end = value.size();
+  while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1])))
+    --end;
+  return value.substr(start, end - start);
+}
+
+bool TrySplitInlinePort(const std::string &value, std::string *host, uint16 *port) {
+  if (value.empty())
+    return false;
+
+  auto ParsePort = [](const std::string &port_str, uint16 *out_port) {
+    if (port_str.empty())
+      return false;
+    unsigned int parsed = 0;
+    for (char ch : port_str) {
+      if (!std::isdigit(static_cast<unsigned char>(ch)))
+        return false;
+      parsed = parsed * 10 + (ch - '0');
+      if (parsed > 65535)
+        return false;
+    }
+    *out_port = static_cast<uint16>(parsed);
+    return true;
+  };
+
+  if (value.front() == '[') {
+    size_t closing = value.rfind(']');
+    if (closing == std::string::npos || closing == 0)
+      return false;
+    if (closing + 2 > value.size() || value[closing + 1] != ':')
+      return false;
+    uint16 parsed_port;
+    if (!ParsePort(value.substr(closing + 2), &parsed_port))
+      return false;
+    if (host)
+      *host = value.substr(1, closing - 1);
+    if (port)
+      *port = parsed_port;
+    return true;
+  }
+
+  size_t colon = value.rfind(':');
+  if (colon == std::string::npos || colon == 0 || colon == value.size() - 1)
+    return false;
+  if (value.find(':') != colon)
+    return false;  // 多个冒号意味着可能是 IPv6 地址。
+
+  uint16 parsed_port;
+  if (!ParsePort(value.substr(colon + 1), &parsed_port))
+    return false;
+  if (host)
+    *host = value.substr(0, colon);
+  if (port)
+    *port = parsed_port;
+  return true;
+}
 }  // namespace
 
 Socks5TunnelRunner::Socks5TunnelRunner() : running_(false), exit_code_(0) {}
@@ -54,6 +121,16 @@ Socks5TunnelRunner::~Socks5TunnelRunner() {
 
 std::string Socks5TunnelRunner::BuildConfig(const TunInterface::TunConfig::Socks5Settings &settings,
                                             int mtu) const {
+  const uint32 tcp_buffer_size =
+      settings.tcp_buffer_size == 0 ?
+          TunInterface::TunConfig::Socks5Settings::kDefaultTcpBufferSize :
+          settings.tcp_buffer_size;
+  uint64_t stack_floor = static_cast<uint64_t>(kTaskStackBase) + tcp_buffer_size;
+  if (stack_floor > std::numeric_limits<uint32>::max())
+    stack_floor = std::numeric_limits<uint32>::max();
+  const uint32 task_stack_size =
+      static_cast<uint32>(std::max<uint64_t>(static_cast<uint64_t>(kMinimumTaskStackSize), stack_floor));
+
   std::ostringstream ss;
   ss << "tunnel:\n";
   ss << "  name: tunsafe-socks\n";
@@ -76,18 +153,30 @@ std::string Socks5TunnelRunner::BuildConfig(const TunInterface::TunConfig::Socks
     ss << "  password: " << EscapeYaml(settings.password) << "\n";
 
   ss << "misc:\n";
-  ss << "  log-level: " << EscapeYaml(Defaulted(settings.log_level, "warn")) << "\n";
-  ss << "  task-stack-size: 98304\n";
+  ss << "  log-level: " << EscapeYaml(Defaulted(settings.log_level, "none")) << "\n";
+  ss << "  tcp-buffer-size: " << tcp_buffer_size << "\n";
+  ss << "  task-stack-size: " << task_stack_size << "\n";
   return ss.str();
 }
 
 bool Socks5TunnelRunner::Start(const TunInterface::TunConfig::Socks5Settings &settings, int fd, int mtu) {
   Stop();
-  if (settings.server_address.empty() || settings.server_port == 0) {
+  TunInterface::TunConfig::Socks5Settings sanitized = settings;
+
+  sanitized.server_address = TrimAsciiWhitespace(sanitized.server_address);
+
+  std::string inline_host;
+  uint16 inline_port = 0;
+  if (TrySplitInlinePort(sanitized.server_address, &inline_host, &inline_port)) {
+    sanitized.server_address = inline_host;
+    sanitized.server_port = inline_port;
+  }
+
+  if (sanitized.server_address.empty() || sanitized.server_port == 0) {
     last_error_ = "未提供有效的 Socks5Proxy";
     return false;
   }
-  std::string config = BuildConfig(settings, mtu);
+  std::string config = BuildConfig(sanitized, mtu);
   int dup_fd = dup(fd);
   if (dup_fd < 0) {
     last_error_ = "无法复制隧道文件描述符";
