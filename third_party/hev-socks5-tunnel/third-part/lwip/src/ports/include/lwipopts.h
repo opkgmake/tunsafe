@@ -149,7 +149,7 @@ void *hev_calloc (size_t nmemb, size_t size);
  * MEMP_NUM_TCP_SEG: the number of simultaneously queued TCP segments.
  * (requires the LWIP_TCP option)
  */
-#define MEMP_NUM_TCP_SEG                8192
+#define MEMP_NUM_TCP_SEG                16384  /* Matches expanded TCP_SND_QUEUELEN. */
 
 /**
  * MEMP_NUM_REASSDATA: the number of simultaneously IP packets queued for
@@ -200,7 +200,7 @@ void *hev_calloc (size_t nmemb, size_t size);
 /**
  * PBUF_POOL_SIZE: the number of buffers in the pbuf pool.
  */
-#define PBUF_POOL_SIZE                  32
+#define PBUF_POOL_SIZE                  96     /* Enough pooled data to back a 512 KiB window. */
 
 /*
    ---------------------------------
@@ -412,6 +412,11 @@ void *hev_calloc (size_t nmemb, size_t size);
  * To achieve good performance, this should be at least 2 * TCP_MSS.
  */
 #define TCP_SND_BUF                     (512 * 1024)
+
+/**
+ * Clamp the writable watermark so it fits into lwIP's 16-bit accounting.
+ */
+#define TCP_SNDLOWAT                    ((0xFFFF - (4 * TCP_MSS) - 1))
 
 /**
  * TCP_SND_QUEUELEN: TCP sender buffer space (pbufs). This must be at least
