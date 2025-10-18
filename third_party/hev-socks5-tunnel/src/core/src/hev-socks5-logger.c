@@ -36,6 +36,9 @@ hev_socks5_logger_init (HevSocks5LoggerLevel level, const char *path)
 {
     req_level = level;
 
+    if (HEV_SOCKS5_LOGGER_SILENT == level)
+        return 0;
+
     if (0 == strcmp (path, "stdout"))
         fd = dup (1);
     else if (0 == strcmp (path, "stderr"))
@@ -52,7 +55,9 @@ hev_socks5_logger_init (HevSocks5LoggerLevel level, const char *path)
 void
 hev_socks5_logger_fini (void)
 {
-    close (fd);
+    if (fd >= 0)
+        close (fd);
+    fd = -1;
 }
 
 int
@@ -104,6 +109,9 @@ hev_socks5_logger_log (HevSocks5LoggerLevel level, const char *fmt, ...)
         break;
     case HEV_SOCKS5_LOGGER_UNSET:
         iov[1].iov_base = "[?] ";
+        break;
+    case HEV_SOCKS5_LOGGER_SILENT:
+        iov[1].iov_base = "[-] ";
         break;
     }
     iov[1].iov_len = 4;

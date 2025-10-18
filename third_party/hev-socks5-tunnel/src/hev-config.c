@@ -12,6 +12,8 @@
 #include <sys/socket.h>
 #include <lwip/tcp.h>
 #include <yaml.h>
+#include <string.h>
+#include <strings.h>
 
 #include "hev-logger.h"
 #include "hev-config.h"
@@ -305,12 +307,18 @@ hev_config_parse_mapdns (yaml_document_t *doc, yaml_node_t *base)
 static int
 hev_config_parse_log_level (const char *value)
 {
-    if (0 == strcmp (value, "debug"))
+    if (0 == strcasecmp (value, "debug"))
         return HEV_LOGGER_DEBUG;
-    else if (0 == strcmp (value, "info"))
+    else if (0 == strcasecmp (value, "info"))
         return HEV_LOGGER_INFO;
-    else if (0 == strcmp (value, "error"))
+    else if (0 == strcasecmp (value, "error"))
         return HEV_LOGGER_ERROR;
+    else if (0 == strcasecmp (value, "warn"))
+        return HEV_LOGGER_WARN;
+    else if (0 == strcasecmp (value, "none") ||
+             0 == strcasecmp (value, "quiet") ||
+             0 == strcasecmp (value, "off"))
+        return HEV_LOGGER_SILENT;
 
     return HEV_LOGGER_WARN;
 }

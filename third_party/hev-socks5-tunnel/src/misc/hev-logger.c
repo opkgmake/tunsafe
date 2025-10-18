@@ -26,6 +26,9 @@ hev_logger_init (HevLoggerLevel level, const char *path)
 {
     req_level = level;
 
+    if (HEV_LOGGER_SILENT == level)
+        return 0;
+
     if (0 == strcmp (path, "stdout"))
         fd = dup (1);
     else if (0 == strcmp (path, "stderr"))
@@ -42,7 +45,9 @@ hev_logger_init (HevLoggerLevel level, const char *path)
 void
 hev_logger_fini (void)
 {
-    close (fd);
+    if (fd >= 0)
+        close (fd);
+    fd = -1;
 }
 
 int
@@ -94,6 +99,9 @@ hev_logger_log (HevLoggerLevel level, const char *fmt, ...)
         break;
     case HEV_LOGGER_UNSET:
         iov[1].iov_base = "[?] ";
+        break;
+    case HEV_LOGGER_SILENT:
+        iov[1].iov_base = "[-] ";
         break;
     }
     iov[1].iov_len = 4;

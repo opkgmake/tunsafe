@@ -47,7 +47,7 @@ WireguardProcessor::WireguardProcessor(UdpInterface *udp, TunInterface *tun, Pro
   stats_last_ts_ = OsGetMilliseconds();
   socks5_settings_.enabled = false;
   socks5_settings_.udp_mode = "udp";
-  socks5_settings_.log_level = "warn";
+  socks5_settings_.log_level = "none";
 }
 
 WireguardProcessor::~WireguardProcessor() {

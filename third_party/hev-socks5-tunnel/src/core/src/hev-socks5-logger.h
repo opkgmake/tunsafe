@@ -23,6 +23,7 @@ enum _HevSocks5LoggerLevel
     HEV_SOCKS5_LOGGER_WARN,
     HEV_SOCKS5_LOGGER_ERROR,
     HEV_SOCKS5_LOGGER_UNSET,
+    HEV_SOCKS5_LOGGER_SILENT,
 };
 
 int hev_socks5_logger_init (HevSocks5LoggerLevel level, const char *path);
