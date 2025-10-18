@@ -48,6 +48,30 @@
 
 static bool g_daemon_mode;
 
+#if defined(OS_POSIX)
+static void TuneUnixSocketBufferSize(int fd, const char *label) {
+  const int desired = 4 * 1024 * 1024;
+  if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &desired, sizeof(desired)) != 0) {
+    RINFO("无法将 %s 的发送缓冲区调整到 %d: %s", label, desired, strerror(errno));
+  }
+  if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &desired, sizeof(desired)) != 0) {
+    RINFO("无法将 %s 的接收缓冲区调整到 %d: %s", label, desired, strerror(errno));
+  }
+
+  int actual = 0;
+  socklen_t optlen = sizeof(actual);
+  if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &actual, &optlen) == 0 &&
+      actual < desired / 2) {
+    RINFO("%s 的发送缓冲区仍然只有 %d (目标 %d)", label, actual, desired);
+  }
+  optlen = sizeof(actual);
+  if (getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &actual, &optlen) == 0 &&
+      actual < desired / 2) {
+    RINFO("%s 的接收缓冲区仍然只有 %d (目标 %d)", label, actual, desired);
+  }
+}
+#endif
+
 #if defined(OS_MACOSX) || defined(OS_FREEBSD)
 struct MyRouteMsg {
   struct rt_msghdr hdr;
@@ -744,6 +768,10 @@ bool TunsafeBackendBsdImpl::InitializeTun(const TunConfig &config, char devname[
       RERROR("创建 socks5 管道失败");
       return false;
     }
+#if defined(OS_POSIX)
+    TuneUnixSocketBufferSize(fds[0], "socks5 管道(local)");
+    TuneUnixSocketBufferSize(fds[1], "socks5 管道(worker)");
+#endif
     socks5_runner_.reset(new Socks5TunnelRunner());
     if (!socks5_runner_->Start(config.socks5, fds[1], config.mtu)) {
       RERROR("启动 socks5 隧道失败: %s", socks5_runner_->last_error().c_str());
