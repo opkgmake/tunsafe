@@ -127,6 +127,8 @@ public:
     PrePostCommands pre_post_commands;
 
     struct Socks5Settings {
+      static constexpr uint32 kDefaultTcpBufferSize = 512 * 1024;  // Keep in sync with TCP_SND_BUF.
+
       bool enabled = false;
       std::string server_address;
       uint16 server_port = 0;
@@ -137,6 +139,7 @@ public:
       std::string tunnel_ipv4;  // optional
       std::string tunnel_ipv6;  // optional
       std::string log_level;    // optional override
+      uint32 tcp_buffer_size = kDefaultTcpBufferSize;
     } socks5;
   };
 

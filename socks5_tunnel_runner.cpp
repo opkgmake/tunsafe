@@ -4,15 +4,20 @@
 
 #include "util.h"
 
+#include <algorithm>
 #include <chrono>
 #include <sstream>
 #include <string.h>
 #include <unistd.h>
 #include <cctype>
+#include <limits>
 
 #include "third_party/hev-socks5-tunnel/include/hev-socks5-tunnel.h"
 
 namespace {
+constexpr uint32 kTaskStackBase = 20480;  // Matches TASK_STACK_SIZE in hev-config-const.h.
+constexpr uint32 kMinimumTaskStackSize = 98304;  // Historical default floor.
+
 std::string EscapeYaml(const std::string &value) {
   std::string out;
   out.reserve(value.size() + 2);
@@ -116,6 +121,16 @@ Socks5TunnelRunner::~Socks5TunnelRunner() {
 
 std::string Socks5TunnelRunner::BuildConfig(const TunInterface::TunConfig::Socks5Settings &settings,
                                             int mtu) const {
+  const uint32 tcp_buffer_size =
+      settings.tcp_buffer_size == 0 ?
+          TunInterface::TunConfig::Socks5Settings::kDefaultTcpBufferSize :
+          settings.tcp_buffer_size;
+  uint64_t stack_floor = static_cast<uint64_t>(kTaskStackBase) + tcp_buffer_size;
+  if (stack_floor > std::numeric_limits<uint32>::max())
+    stack_floor = std::numeric_limits<uint32>::max();
+  const uint32 task_stack_size =
+      static_cast<uint32>(std::max<uint64_t>(static_cast<uint64_t>(kMinimumTaskStackSize), stack_floor));
+
   std::ostringstream ss;
   ss << "tunnel:\n";
   ss << "  name: tunsafe-socks\n";
@@ -139,7 +154,8 @@ std::string Socks5TunnelRunner::BuildConfig(const TunInterface::TunConfig::Socks
 
   ss << "misc:\n";
   ss << "  log-level: " << EscapeYaml(Defaulted(settings.log_level, "none")) << "\n";
-  ss << "  task-stack-size: 98304\n";
+  ss << "  tcp-buffer-size: " << tcp_buffer_size << "\n";
+  ss << "  task-stack-size: " << task_stack_size << "\n";
   return ss.str();
 }
 

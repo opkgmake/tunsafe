@@ -5,10 +5,12 @@
 #include "wireguard.h"
 #include "util.h"
 #include <stdlib.h>
+#include <errno.h>
 #include <string.h>
 #include <assert.h>
 #include <vector>
 #include <stdarg.h>
+#include <limits>
 
 class WgFileParser {
 public:
@@ -43,6 +45,20 @@ static bool ParseBoolean(const char *str, bool *value) {
     return true;
   }
   return false;
+}
+
+static bool ParseUint32Value(const char *str, uint32 *value) {
+  if (!str || !*str)
+    return false;
+  errno = 0;
+  char *end = nullptr;
+  unsigned long parsed = strtoul(str, &end, 10);
+  if (errno != 0 || !end || *end != '\0')
+    return false;
+  if (parsed > std::numeric_limits<uint32>::max())
+    return false;
+  *value = static_cast<uint32>(parsed);
+  return true;
 }
 
 static int ParseFeature(const char *str) {
@@ -249,6 +265,15 @@ bool WgFileParser::ParseFlag(const char *group, const char *key, char *value) {
       auto &socks = wg_->socks5_settings();
       socks.enabled = true;
       socks.log_level = value;
+    } else if (strcmp(key, "Socks5TcpBufferSize") == 0) {
+      auto &socks = wg_->socks5_settings();
+      socks.enabled = true;
+      uint32 parsed = 0;
+      if (!ParseUint32Value(value, &parsed)) {
+        RERROR("Socks5TcpBufferSize 必须是非负整数: %s", value);
+        return false;
+      }
+      socks.tcp_buffer_size = parsed;
     } else if (WITH_HEADER_OBFUSCATION && strcmp(key, "ObfuscateKey") == 0) {
       wg_->dev().packet_obfuscator().SetKey((uint8*)value, strlen(value));
     } else if (WITH_HEADER_OBFUSCATION && strcmp(key, "ObfuscateTCP") == 0) {

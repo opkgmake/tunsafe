@@ -381,6 +381,16 @@ void *hev_calloc (size_t nmemb, size_t size);
 #define LWIP_TCP                        1
 
 /**
+ * Enable TCP window scaling so we can advertise windows larger than 64 KiB.
+ */
+#define LWIP_WND_SCALE                  1
+
+/**
+ * Advertise a receive window scale of 4 (multiply the base window by 16).
+ */
+#define TCP_RCV_SCALE                   4
+
+/**
  * TCP_MSS: TCP Maximum segment size.
  * For the receive side, this MSS is advertised to the remote side
  * when opening a connection. For the transmit size, this MSS sets
@@ -395,13 +405,13 @@ void *hev_calloc (size_t nmemb, size_t size);
  * with scaling applied. Maximum window value in the TCP header
  * will be TCP_WND >> TCP_RCV_SCALE
  */
-#define TCP_WND                         (8 * TCP_MSS)
+#define TCP_WND                         (512 * 1024)
 
 /**
  * TCP_SND_BUF: TCP sender buffer space (bytes).
  * To achieve good performance, this should be at least 2 * TCP_MSS.
  */
-#define TCP_SND_BUF                     (8 * TCP_MSS)
+#define TCP_SND_BUF                     (512 * 1024)
 
 /**
  * TCP_SND_QUEUELEN: TCP sender buffer space (pbufs). This must be at least
