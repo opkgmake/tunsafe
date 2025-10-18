@@ -104,24 +104,8 @@ static uint32 make_cidr_mask(uint8 cidr) {
 #define NODE_IS_NULL_OR_OLEAF(n) ((n) == 0 || NODE_IS_OLEAF(n))
 #define VALUE_TO_OLEAF(n) ((Node*)((intptr_t)(n) + 1))
 #define VALUE_FROM_OLEAF(n) ((void*)((intptr_t)(n) - 1))
-/* 原代码被替换下面那个了
 static RoutingTrie32::Node *NewNode(uint32 key, int pos, int bits) {
   RoutingTrie32::Node *n = (RoutingTrie32::Node *)malloc(offsetof(RoutingTrie32::Node, child[(uint32)(1U << bits)]));
-  if (n) {
-    n->parent = NULL;
-    n->pos = pos;
-    n->bits = bits;
-    n->full_children = 0;
-    n->empty_children = 1U << bits;
-    uint32 s = pos + bits;
-    n->key = (s < 32) ? key >> s << s : 0;
-    memset(n->child, 0, n->empty_children * sizeof(RoutingTrie32::Node*));
-  }
-  return n;
-}
-*/
-static RoutingTrie32::Node *NewNode(uint32 key, int pos, int bits) {
-  RoutingTrie32::Node *n = (RoutingTrie32::Node *)operator new(sizeof(RoutingTrie32::Node) + sizeof(RoutingTrie32::Node*) * (1U << bits));
   if (n) {
     n->parent = NULL;
     n->pos = pos;
