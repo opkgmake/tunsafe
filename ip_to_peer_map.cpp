@@ -5,6 +5,7 @@
 #include "bit_ops.h"
 #include <string.h>
 #include <assert.h>
+#include <limits>
 #include <stdlib.h>
 #include "util.h"
 
@@ -105,8 +106,18 @@ static uint32 make_cidr_mask(uint8 cidr) {
 #define VALUE_TO_OLEAF(n) ((Node*)((intptr_t)(n) + 1))
 #define VALUE_FROM_OLEAF(n) ((void*)((intptr_t)(n) - 1))
 static RoutingTrie32::Node *NewNode(uint32 key, int pos, int bits) {
+  if (bits < 0 || bits >= static_cast<int>(sizeof(size_t) * 8))
+    return NULL;
+
   size_t child_count = size_t(1) << bits;
-  size_t alloc_size = sizeof(RoutingTrie32::Node) + child_count * sizeof(RoutingTrie32::Node*);
+  size_t max_children =
+      (std::numeric_limits<size_t>::max() - sizeof(RoutingTrie32::Node)) /
+      sizeof(RoutingTrie32::Node *);
+  if (child_count > max_children)
+    return NULL;
+
+  size_t alloc_size = sizeof(RoutingTrie32::Node) +
+                      child_count * sizeof(RoutingTrie32::Node *);
   RoutingTrie32::Node *n = (RoutingTrie32::Node *)malloc(alloc_size);
   if (n) {
     n->parent = NULL;
