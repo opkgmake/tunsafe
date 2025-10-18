@@ -15,17 +15,29 @@
 #include <unistd.h>
 #include <sys/uio.h>
 #include <sys/stat.h>
+#include <pthread.h>
 
 #include "hev-socks5-logger.h"
 #include "hev-socks5-logger-priv.h"
 
 static int fd = -1;
 static HevSocks5LoggerLevel req_level;
+static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
+static char last_msg[1024];
+static size_t last_msg_len;
+static HevSocks5LoggerLevel last_level;
+static time_t last_ts;
+static int last_valid;
+
+#define LOG_SUPPRESS_INTERVAL 5
 
 int
 hev_socks5_logger_init (HevSocks5LoggerLevel level, const char *path)
 {
     req_level = level;
+
+    if (HEV_SOCKS5_LOGGER_SILENT == level)
+        return 0;
 
     if (0 == strcmp (path, "stdout"))
         fd = dup (1);
@@ -43,7 +55,9 @@ hev_socks5_logger_init (HevSocks5LoggerLevel level, const char *path)
 void
 hev_socks5_logger_fini (void)
 {
-    close (fd);
+    if (fd >= 0)
+        close (fd);
+    fd = -1;
 }
 
 int
@@ -96,13 +110,40 @@ hev_socks5_logger_log (HevSocks5LoggerLevel level, const char *fmt, ...)
     case HEV_SOCKS5_LOGGER_UNSET:
         iov[1].iov_base = "[?] ";
         break;
+    case HEV_SOCKS5_LOGGER_SILENT:
+        iov[1].iov_base = "[-] ";
+        break;
     }
     iov[1].iov_len = 4;
 
     va_start (ap, fmt);
     iov[2].iov_base = msg;
-    iov[2].iov_len = vsnprintf (msg, 1024, fmt, ap);
+    len = vsnprintf (msg, sizeof (msg), fmt, ap);
     va_end (ap);
+    if (len < 0)
+        len = 0;
+    else if (len >= (int) sizeof (msg))
+        len = sizeof (msg) - 1;
+    msg[len] = '\0';
+    iov[2].iov_len = len;
+
+    pthread_mutex_lock (&log_mutex);
+    if (last_valid && level == last_level && iov[2].iov_len == last_msg_len &&
+        difftime (now, last_ts) < LOG_SUPPRESS_INTERVAL &&
+        memcmp (last_msg, msg, last_msg_len) == 0) {
+        pthread_mutex_unlock (&log_mutex);
+        return;
+    }
+
+    last_level = level;
+    last_msg_len = iov[2].iov_len;
+    if (last_msg_len > 0)
+        memcpy (last_msg, msg, last_msg_len);
+    if (last_msg_len < sizeof (last_msg))
+        last_msg[last_msg_len] = '\0';
+    last_ts = now;
+    last_valid = 1;
+    pthread_mutex_unlock (&log_mutex);
 
     iov[3].iov_base = "\n";
     iov[3].iov_len = 1;

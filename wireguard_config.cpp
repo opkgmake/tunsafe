@@ -99,6 +99,8 @@ static bool ParseSocks5Proxy(const char *value, std::string *host, uint16_t *por
       port_sep = closing + 1;
   } else {
     port_sep = strrchr(value, ':');
+    if (port_sep)
+      addr_end = port_sep;
   }
   if (!port_sep || port_sep[1] == 0)
     return false;

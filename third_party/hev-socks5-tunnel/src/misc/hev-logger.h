@@ -28,6 +28,7 @@ typedef enum
     HEV_LOGGER_WARN,
     HEV_LOGGER_ERROR,
     HEV_LOGGER_UNSET,
+    HEV_LOGGER_SILENT,
 } HevLoggerLevel;
 
 int hev_logger_init (HevLoggerLevel level, const char *path);
